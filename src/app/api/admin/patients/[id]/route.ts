@@ -30,6 +30,9 @@ export async function DELETE(
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 
-  await prisma.patient.delete({ where: { id: params.id } });
+  await prisma.patient.update({
+    where: { id: params.id },
+    data: { isActive: false },
+  });
   return NextResponse.json({ success: true });
 }
