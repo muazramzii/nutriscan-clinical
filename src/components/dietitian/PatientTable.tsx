@@ -11,10 +11,24 @@ interface Props {
 }
 
 export function PatientTable({ patients, wardFilter }: Props) {
+  const sortedPatients = [...patients].sort((a, b) => {
+    // 1. Critical status first
+    const aPriority = a.statusLabel === "Critical" ? 2 : a.statusLabel === "Low intake" ? 1 : 0;
+    const bPriority = b.statusLabel === "Critical" ? 2 : b.statusLabel === "Low intake" ? 1 : 0;
+    
+    if (aPriority !== bPriority) return bPriority - aPriority;
+    
+    // 2. Then unread alert count
+    if (a.alertCount !== b.alertCount) return b.alertCount - a.alertCount;
+    
+    // 3. Then alphabetical by name
+    return a.name.localeCompare(b.name);
+  });
+
   const filtered =
     wardFilter === "all"
-      ? patients
-      : patients.filter((p) => p.ward === wardFilter);
+      ? sortedPatients
+      : sortedPatients.filter((p) => p.ward === wardFilter);
 
   if (filtered.length === 0) {
     return (

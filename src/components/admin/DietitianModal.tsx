@@ -44,7 +44,7 @@ export function DietitianModal({ dietitian, onClose, onSaved }: Props) {
     });
 
     setSaving(false);
-    if (!res.ok) { setError("Failed to save."); return; }
+    if (!res.ok) { setError("Gagal menyimpan. / Failed to save."); return; }
     onSaved();
     onClose();
   }
@@ -54,7 +54,7 @@ export function DietitianModal({ dietitian, onClose, onSaved }: Props) {
       <div className="bg-white rounded-xl shadow-xl w-full max-w-md p-6">
         <div className="flex items-center justify-between mb-5">
           <h2 className="font-bold text-gray-900">
-            {dietitian ? "Edit Dietitian" : "Add Dietitian"}
+            {dietitian ? "Edit Dietitian" : "Tambah Dietitian / Add Dietitian"}
           </h2>
           <button onClick={onClose} className="text-gray-400 hover:text-gray-600">
             <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -65,7 +65,7 @@ export function DietitianModal({ dietitian, onClose, onSaved }: Props) {
 
         <form onSubmit={handleSubmit} className="space-y-3">
           <div>
-            <label className="block text-xs font-medium text-gray-700 mb-1">Name</label>
+            <label className="block text-xs font-medium text-gray-700 mb-1">Nama / Name</label>
             <input type="text" value={form.name} onChange={(e) => setForm((f) => ({ ...f, name: e.target.value }))} required
               className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary" />
           </div>
@@ -73,12 +73,12 @@ export function DietitianModal({ dietitian, onClose, onSaved }: Props) {
           {!dietitian && (
             <>
               <div>
-                <label className="block text-xs font-medium text-gray-700 mb-1">Email</label>
+                <label className="block text-xs font-medium text-gray-700 mb-1">E-mel / Email</label>
                 <input type="email" value={form.email} onChange={(e) => setForm((f) => ({ ...f, email: e.target.value }))} required
                   className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary" />
               </div>
               <div>
-                <label className="block text-xs font-medium text-gray-700 mb-1">Password</label>
+                <label className="block text-xs font-medium text-gray-700 mb-1">Kata Laluan / Password</label>
                 <input type="password" value={form.password} onChange={(e) => setForm((f) => ({ ...f, password: e.target.value }))} required
                   className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary" />
               </div>
@@ -86,7 +86,7 @@ export function DietitianModal({ dietitian, onClose, onSaved }: Props) {
           )}
 
           <div>
-            <label className="block text-xs font-medium text-gray-700 mb-1">Ward (optional)</label>
+            <label className="block text-xs font-medium text-gray-700 mb-1">Ward (opsional)</label>
             <input type="text" value={form.ward} onChange={(e) => setForm((f) => ({ ...f, ward: e.target.value }))}
               className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary" />
           </div>
@@ -95,10 +95,10 @@ export function DietitianModal({ dietitian, onClose, onSaved }: Props) {
 
           <div className="flex gap-3 pt-2">
             <button type="button" onClick={onClose} className="flex-1 py-2.5 border border-gray-300 text-gray-700 text-sm rounded-lg">
-              Cancel
+              Batal / Cancel
             </button>
             <button type="submit" disabled={saving} className="flex-1 py-2.5 bg-primary text-white text-sm font-semibold rounded-lg disabled:opacity-50">
-              {saving ? "Saving..." : "Save"}
+              {saving ? "Menyimpan..." : "Simpan / Save"}
             </button>
           </div>
         </form>

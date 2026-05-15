@@ -42,6 +42,18 @@ export async function GET() {
       (sum, l) => sum + (l.nutritionResult?.kcalActual ?? 0),
       0
     );
+    const todayCarbs = todayLogs.reduce(
+      (sum, l) => sum + (l.nutritionResult?.carbsActual ?? 0),
+      0
+    );
+    const todayProtein = todayLogs.reduce(
+      (sum, l) => sum + (l.nutritionResult?.proteinActual ?? 0),
+      0
+    );
+    const todayFat = todayLogs.reduce(
+      (sum, l) => sum + (l.nutritionResult?.fatActual ?? 0),
+      0
+    );
     const percentageEaten =
       p.kcalTarget > 0 ? (todayKcal / p.kcalTarget) * 100 : 0;
 
@@ -63,7 +75,13 @@ export async function GET() {
     });
 
     // Build 7-day weekly data
-    const weeklyData: { date: string; kcal: number }[] = [];
+    const weeklyData: { 
+      date: string; 
+      kcal: number;
+      carbs: number;
+      protein: number;
+      fat: number;
+    }[] = [];
     for (let i = 6; i >= 0; i--) {
       const d = new Date(today);
       d.setDate(d.getDate() - i);
@@ -76,9 +94,24 @@ export async function GET() {
         (sum, l) => sum + (l.nutritionResult?.kcalActual ?? 0),
         0
       );
+      const dayCarbs = dayLogs.reduce(
+        (sum, l) => sum + (l.nutritionResult?.carbsActual ?? 0),
+        0
+      );
+      const dayProtein = dayLogs.reduce(
+        (sum, l) => sum + (l.nutritionResult?.proteinActual ?? 0),
+        0
+      );
+      const dayFat = dayLogs.reduce(
+        (sum, l) => sum + (l.nutritionResult?.fatActual ?? 0),
+        0
+      );
       weeklyData.push({
         date: d.toLocaleDateString("en-MY", { weekday: "short", day: "numeric" }),
         kcal: Math.round(dayKcal),
+        carbs: Math.round(dayCarbs),
+        protein: Math.round(dayProtein),
+        fat: Math.round(dayFat),
       });
     }
 
@@ -90,6 +123,9 @@ export async function GET() {
       dietType: p.dietType,
       kcalTarget: p.kcalTarget,
       todayKcal: Math.round(todayKcal),
+      todayCarbs: Math.round(todayCarbs),
+      todayProtein: Math.round(todayProtein),
+      todayFat: Math.round(todayFat),
       percentageEaten: Math.round(percentageEaten),
       statusLabel,
       mealStatus,

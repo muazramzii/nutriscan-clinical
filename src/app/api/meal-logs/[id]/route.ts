@@ -57,9 +57,13 @@ export async function PATCH(
   const percentageEaten =
     kcalBefore > 0 ? (kcalActual / kcalBefore) * 100 : 100;
 
-  const carbsBefore = analysisResult?.totalCarbs ?? 0;
-  const proteinBefore = analysisResult?.totalProtein ?? 0;
-  const fatBefore = analysisResult?.totalFat ?? 0;
+  const carbsBefore = beforeItems.reduce((sum, i) => sum + (i.kcalTotal * 0.55 / 4), 0); // fallback if before carbs not tracked
+  const proteinBefore = beforeItems.reduce((sum, i) => sum + (i.kcalTotal * 0.20 / 4), 0);
+  const fatBefore = beforeItems.reduce((sum, i) => sum + (i.kcalTotal * 0.25 / 9), 0);
+
+  const carbsActual = Math.max(0, carbsBefore - (analysisResult?.totalCarbs ?? 0));
+  const proteinActual = Math.max(0, proteinBefore - (analysisResult?.totalProtein ?? 0));
+  const fatActual = Math.max(0, fatBefore - (analysisResult?.totalFat ?? 0));
 
   const nutritionResult = await prisma.nutritionResult.upsert({
     where: { mealLogId },
@@ -68,18 +72,18 @@ export async function PATCH(
       kcalBefore,
       kcalAfter: afterKcal,
       kcalActual,
-      carbsActual: Math.max(0, carbsBefore),
-      proteinActual: Math.max(0, proteinBefore),
-      fatActual: Math.max(0, fatBefore),
+      carbsActual,
+      proteinActual,
+      fatActual,
       percentageEaten,
     },
     update: {
       kcalBefore,
       kcalAfter: afterKcal,
       kcalActual,
-      carbsActual: Math.max(0, carbsBefore),
-      proteinActual: Math.max(0, proteinBefore),
-      fatActual: Math.max(0, fatBefore),
+      carbsActual,
+      proteinActual,
+      fatActual,
       percentageEaten,
     },
   });

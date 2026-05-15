@@ -64,10 +64,19 @@ export interface DashboardPatient {
   dietType: DietType;
   kcalTarget: number;
   todayKcal: number;
+  todayCarbs: number;
+  todayProtein: number;
+  todayFat: number;
   percentageEaten: number;
   statusLabel: "On track" | "Low intake" | "Critical" | "No data";
   mealStatus: MealLogStatus;
-  weeklyData: { date: string; kcal: number }[];
+  weeklyData: { 
+    date: string; 
+    kcal: number;
+    carbs: number;
+    protein: number;
+    fat: number;
+  }[];
   alertCount: number;
 }
 

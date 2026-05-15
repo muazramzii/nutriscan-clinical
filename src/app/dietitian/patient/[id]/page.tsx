@@ -22,6 +22,8 @@ export default function PatientDetailPage() {
 
   const [patient, setPatient] = useState<DashboardPatient | null>(null);
   const [alerts, setAlerts] = useState<AlertWithPatient[]>([]);
+  const [interventions, setInterventions] = useState<any[]>([]);
+  const [newIntervention, setNewIntervention] = useState("");
   const [loading, setLoading] = useState(true);
   const [unreadCount, setUnreadCount] = useState(0);
 
@@ -29,16 +31,32 @@ export default function PatientDetailPage() {
     Promise.all([
       fetch("/api/dashboard/dietitian").then((r) => r.json()),
       fetch("/api/alerts").then((r) => r.json()),
-    ]).then(([dashData, alertsData]) => {
+      fetch(`/api/patients/${patientId}/interventions`).then((r) => r.json()),
+    ]).then(([dashData, alertsData, interData]) => {
       const found = dashData.patients.find(
         (p: DashboardPatient) => p.id === patientId
       );
       setPatient(found ?? null);
       setAlerts(alertsData.alerts ?? []);
+      setInterventions(interData.interventions ?? []);
       setUnreadCount(dashData.unreadAlertCount ?? 0);
       setLoading(false);
     });
   }, [patientId]);
+
+  async function handleAddIntervention() {
+    if (!newIntervention.trim()) return;
+    const res = await fetch(`/api/patients/${patientId}/interventions`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ content: newIntervention }),
+    });
+    if (res.ok) {
+      const { intervention } = await res.json();
+      setInterventions([intervention, ...interventions]);
+      setNewIntervention("");
+    }
+  }
 
   async function handleMarkRead(alertId: string) {
     await fetch(`/api/alerts/${alertId}`, { method: "PATCH" });
@@ -179,6 +197,34 @@ export default function PatientDetailPage() {
             {/* 7-day chart */}
             <IntakeChart data={patient.weeklyData} kcalTarget={patient.kcalTarget} />
 
+            {/* Weekly Macro Trends Analysis */}
+            <div className="bg-primary-50 border border-primary-100 rounded-xl p-4">
+              <h3 className="text-sm font-bold text-primary-900 mb-2 flex items-center gap-2">
+                <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" />
+                </svg>
+                Weekly Insight
+              </h3>
+              <div className="text-sm text-primary-800 space-y-2">
+                {(() => {
+                  const insights = [];
+                  const lowKcalDays = patient.weeklyData.filter(d => d.kcal < patient.kcalTarget * 0.5).length;
+                  const lowProteinDays = patient.weeklyData.filter(d => d.protein < macroTarget.protein * 0.7).length;
+                  
+                  if (lowKcalDays >= 3) insights.push(`Patient missed >50% calorie target on ${lowKcalDays} days this week.`);
+                  if (lowProteinDays >= 3) insights.push(`Consistent low protein intake detected (${lowProteinDays} days below 70% target).`);
+                  if (insights.length === 0) insights.push("Patient intake trends are stable and meeting majority of clinical targets.");
+                  
+                  return insights.map((insight, idx) => (
+                    <p key={idx} className="flex items-start gap-2">
+                      <span className="mt-1.5 w-1.5 h-1.5 rounded-full bg-primary flex-shrink-0" />
+                      {insight}
+                    </p>
+                  ));
+                })()}
+              </div>
+            </div>
+
             {/* Nutrition breakdown */}
             <div className="bg-white rounded-xl border border-gray-200 p-4">
               <h2 className="font-semibold text-gray-900 mb-4">
@@ -187,9 +233,9 @@ export default function PatientDetailPage() {
               <div className="space-y-4">
                 {[
                   { label: "Calories", unit: "kcal", actual: patient.todayKcal, target: patient.kcalTarget },
-                  { label: "Carbs", unit: "g", actual: Math.round(patient.todayKcal * 0.55 / 4), target: macroTarget.carbs },
-                  { label: "Protein", unit: "g", actual: Math.round(patient.todayKcal * 0.2 / 4), target: macroTarget.protein },
-                  { label: "Fat", unit: "g", actual: Math.round(patient.todayKcal * 0.25 / 9), target: macroTarget.fat },
+                  { label: "Carbs", unit: "g", actual: patient.todayCarbs, target: macroTarget.carbs },
+                  { label: "Protein", unit: "g", actual: patient.todayProtein, target: macroTarget.protein },
+                  { label: "Fat", unit: "g", actual: patient.todayFat, target: macroTarget.fat },
                 ].map((item) => (
                   <div key={item.label}>
                     <div className="flex justify-between text-sm mb-1">
@@ -250,6 +296,60 @@ export default function PatientDetailPage() {
                   <p className="text-sm text-gray-400">No alerts.</p>
                 )}
               </div>
+            </div>
+
+            {/* Intervention Notes */}
+            <div className="bg-white rounded-xl border border-gray-200 p-4">
+              <h3 className="font-semibold text-gray-900 mb-3 flex items-center justify-between">
+                Interventions
+                <span className="text-[10px] bg-gray-100 text-gray-500 px-2 py-0.5 rounded-full font-normal">
+                  {interventions.length} logged
+                </span>
+              </h3>
+              
+              <div className="space-y-4">
+                <div className="space-y-2">
+                  <textarea
+                    value={newIntervention}
+                    onChange={(e) => setNewIntervention(e.target.value)}
+                    placeholder="Record clinical intervention..."
+                    className="w-full text-sm border border-gray-200 rounded-lg p-2 focus:outline-none focus:ring-2 focus:ring-primary/20 min-h-[80px] resize-none"
+                  />
+                  <button
+                    onClick={handleAddIntervention}
+                    disabled={!newIntervention.trim()}
+                    className="w-full py-2 bg-primary text-white text-xs font-bold rounded-lg hover:bg-primary-600 disabled:opacity-50 transition-colors"
+                  >
+                    Log Intervention
+                  </button>
+                </div>
+
+                <div className="space-y-3 max-h-[300px] overflow-y-auto pr-1">
+                  {interventions.map((item) => (
+                    <div key={item.id} className="border-l-2 border-primary-200 pl-3 py-1">
+                      <p className="text-sm text-gray-800 leading-relaxed">{item.content}</p>
+                      <div className="flex items-center gap-2 mt-2">
+                        <span className="text-[10px] font-bold text-gray-900">{item.dietitian.name}</span>
+                        <span className="text-[10px] text-gray-400">
+                          {new Date(item.createdAt).toLocaleDateString("en-MY", { day: 'numeric', month: 'short' })}
+                        </span>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            </div>
+
+            <div className="bg-white rounded-xl border border-gray-200 p-4">
+              <button 
+                onClick={() => window.print()}
+                className="w-full flex items-center justify-center gap-2 py-3 border border-gray-200 text-gray-600 text-sm font-semibold rounded-xl hover:bg-gray-50 transition-colors"
+              >
+                <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 17h2a2 2 0 002-2v-4a2 2 0 00-2-2H5a2 2 0 00-2 2v4a2 2 0 002 2h2m2 4h6a2 2 0 002-2v-4a2 2 0 00-2-2H9a2 2 0 00-2 2v4a2 2 0 002 2zm8-12V5a2 2 0 00-2-2H9a2 2 0 00-2 2v4h10z" />
+                </svg>
+                Export Clinical Summary
+              </button>
             </div>
           </div>
         </div>

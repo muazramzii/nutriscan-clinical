@@ -96,7 +96,7 @@ export async function POST(request: NextRequest) {
     console.error("analyze-food error:", error);
     return NextResponse.json(
       {
-        error: "Analysis failed. Please try again.",
+        error: "Analisis gagal. Sila cuba lagi. / Analysis failed. Please try again.",
         analysis: {
           items: [],
           totalKcal: 0,

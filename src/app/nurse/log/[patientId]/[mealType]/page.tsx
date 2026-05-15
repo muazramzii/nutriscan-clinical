@@ -97,10 +97,22 @@ export default function MealLogFlowPage() {
     }
   }
 
-  async function handleConfirmBefore() {
+  async function handleConfirmBefore(updatedItems?: AnalysisResult["items"]) {
     if (!beforeAnalysis) return;
     setSaving(true);
     setError("");
+    
+    const finalAnalysis = updatedItems 
+      ? {
+          ...beforeAnalysis,
+          items: updatedItems,
+          totalKcal: updatedItems.reduce((sum, item) => sum + item.kcalTotal, 0),
+          totalCarbs: updatedItems.reduce((sum, item) => sum + item.carbsG, 0),
+          totalProtein: updatedItems.reduce((sum, item) => sum + item.proteinG, 0),
+          totalFat: updatedItems.reduce((sum, item) => sum + item.fatG, 0),
+        }
+      : beforeAnalysis;
+
     try {
       const res = await fetch("/api/meal-logs", {
         method: "POST",
@@ -109,7 +121,7 @@ export default function MealLogFlowPage() {
           patientId,
           mealType,
           imageUrl: beforeImageUrl,
-          analysisResult: beforeAnalysis,
+          analysisResult: finalAnalysis,
         }),
       });
       if (!res.ok) throw new Error("Failed to save");
@@ -137,17 +149,29 @@ export default function MealLogFlowPage() {
     }
   }
 
-  async function handleConfirmAfter() {
+  async function handleConfirmAfter(updatedItems?: AnalysisResult["items"]) {
     if (!afterAnalysis || !mealLogId) return;
     setSaving(true);
     setError("");
+
+    const finalAnalysis = updatedItems 
+      ? {
+          ...afterAnalysis,
+          items: updatedItems,
+          totalKcal: updatedItems.reduce((sum, item) => sum + item.kcalTotal, 0),
+          totalCarbs: updatedItems.reduce((sum, item) => sum + item.carbsG, 0),
+          totalProtein: updatedItems.reduce((sum, item) => sum + item.proteinG, 0),
+          totalFat: updatedItems.reduce((sum, item) => sum + item.fatG, 0),
+        }
+      : afterAnalysis;
+
     try {
       const res = await fetch(`/api/meal-logs/${mealLogId}`, {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           imageUrl: afterImageUrl,
-          analysisResult: afterAnalysis,
+          analysisResult: finalAnalysis,
         }),
       });
       if (!res.ok) throw new Error("Failed to save");
