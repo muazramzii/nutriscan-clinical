@@ -29,28 +29,28 @@ export default function AdminDietitiansPage() {
     <div className="p-6">
       <div className="flex items-center justify-between mb-6">
         <div>
-          <h1 className="text-xl font-bold text-gray-900">Dietitians / Pakar Pemakanan</h1>
-          <p className="text-sm text-gray-500">Urus akaun pakar pemakanan</p>
+          <h1 className="text-xl font-bold text-gray-900">Dietitians</h1>
+          <p className="text-sm text-gray-500">Manage dietitian accounts</p>
         </div>
         <button
           onClick={() => setModal({ open: true, item: null })}
           className="bg-primary text-white text-sm font-semibold px-4 py-2.5 rounded-lg hover:bg-primary-600"
         >
-          + Tambah Dietitian
+          + Add Dietitian
         </button>
       </div>
 
       {loading ? (
-        <p className="text-gray-400">Memuatkan...</p>
+        <p className="text-gray-400">Loading...</p>
       ) : (
         <div className="bg-white rounded-xl border border-gray-200 overflow-hidden">
           <table className="w-full text-sm">
             <thead className="bg-gray-50 border-b border-gray-200">
               <tr>
-                <th className="text-left px-4 py-3 text-xs font-semibold text-gray-500 uppercase">Nama / Name</th>
-                <th className="text-left px-4 py-3 text-xs font-semibold text-gray-500 uppercase">E-mel / Email</th>
-                <th className="text-left px-4 py-3 text-xs font-semibold text-gray-500 uppercase">Ward Ditugaskan</th>
-                <th className="text-left px-4 py-3 text-xs font-semibold text-gray-500 uppercase">Tarikh Daftar</th>
+                <th className="text-left px-4 py-3 text-xs font-semibold text-gray-500 uppercase">Name</th>
+                <th className="text-left px-4 py-3 text-xs font-semibold text-gray-500 uppercase">Email</th>
+                <th className="text-left px-4 py-3 text-xs font-semibold text-gray-500 uppercase">Assigned Ward</th>
+                <th className="text-left px-4 py-3 text-xs font-semibold text-gray-500 uppercase">Registered Date</th>
                 <th className="px-4 py-3" />
               </tr>
             </thead>
@@ -60,10 +60,10 @@ export default function AdminDietitiansPage() {
                   <td className="px-4 py-3 font-medium text-gray-900">{d.name}</td>
                   <td className="px-4 py-3 text-gray-600">{d.email}</td>
                   <td className="px-4 py-3 text-gray-600">
-                    {d.ward ? `Ward ${d.ward}` : <span className="text-gray-400 italic">Semua ward</span>}
+                    {d.ward ? `Ward ${d.ward}` : <span className="text-gray-400 italic">All wards</span>}
                   </td>
                   <td className="px-4 py-3 text-gray-500">
-                    {new Date(d.createdAt).toLocaleDateString("ms-MY")}
+                    {new Date(d.createdAt).toLocaleDateString("en-MY")}
                   </td>
                   <td className="px-4 py-3 text-right">
                     <button
@@ -78,7 +78,7 @@ export default function AdminDietitiansPage() {
               {dietitians.length === 0 && (
                 <tr>
                   <td colSpan={5} className="px-4 py-8 text-center text-gray-400">
-                    Tiada dietitian. / No dietitians found.
+                    No dietitians found.
                   </td>
                 </tr>
               )}

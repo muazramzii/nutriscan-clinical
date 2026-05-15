@@ -5,9 +5,11 @@ import { usePathname } from "next/navigation";
 import { signOut } from "next-auth/react";
 
 const NAV = [
-  { href: "/admin/food-database", label: "Food Database", labelBM: "Pangkalan Data Makanan", icon: "🥗" },
-  { href: "/admin/patients", label: "Patients", labelBM: "Pesakit", icon: "🏥" },
-  { href: "/admin/dietitians", label: "Dietitians", labelBM: "Pakar Pemakanan", icon: "👩‍⚕️" },
+  { href: "/admin/food-database", label: "Food Database", icon: "🥗" },
+  { href: "/admin/patients", label: "Patients", icon: "🏥" },
+  { href: "/admin/wards", label: "Wards", icon: "🏢" },
+  { href: "/admin/dietitians", label: "Dietitians", icon: "👩‍⚕️" },
+  { href: "/admin/reports", label: "Reports", icon: "📊" },
 ];
 
 export function AdminSidebar() {
