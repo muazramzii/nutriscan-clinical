@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import { useSession, signOut } from "next-auth/react";
 import Image from "next/image";
 import { PatientCard } from "@/components/nurse/PatientCard";
+import { NursePatientModal } from "@/components/nurse/NursePatientModal";
 import { LoadingSpinner } from "@/components/ui/LoadingSpinner";
 import { PatientWithMealStatus } from "@/types";
 
@@ -11,8 +12,10 @@ export default function NursePage() {
   const { data: session } = useSession();
   const [patients, setPatients] = useState<PatientWithMealStatus[]>([]);
   const [loading, setLoading] = useState(true);
+  const [modal, setModal] = useState<{ open: boolean; patient?: PatientWithMealStatus | null }>({ open: false });
+  const [deleteTarget, setDeleteTarget] = useState<PatientWithMealStatus | null>(null);
 
-  useEffect(() => {
+  function fetchPatients() {
     fetch("/api/patients")
       .then((r) => r.json())
       .then((data) => {
@@ -29,20 +32,24 @@ export default function NursePage() {
           }) => ({
             ...p,
             mealStatus: {
-              BREAKFAST:
-                p.mealLogs.find((l) => l.mealType === "BREAKFAST")?.status ??
-                null,
-              LUNCH:
-                p.mealLogs.find((l) => l.mealType === "LUNCH")?.status ?? null,
-              DINNER:
-                p.mealLogs.find((l) => l.mealType === "DINNER")?.status ?? null,
+              BREAKFAST: p.mealLogs.find((l) => l.mealType === "BREAKFAST")?.status ?? null,
+              LUNCH: p.mealLogs.find((l) => l.mealType === "LUNCH")?.status ?? null,
+              DINNER: p.mealLogs.find((l) => l.mealType === "DINNER")?.status ?? null,
             },
           })
         );
         setPatients(mapped);
         setLoading(false);
       });
-  }, []);
+  }
+
+  useEffect(() => { fetchPatients(); }, []);
+
+  async function handleDelete(patient: PatientWithMealStatus) {
+    await fetch(`/api/admin/patients/${patient.id}`, { method: "DELETE" });
+    setDeleteTarget(null);
+    fetchPatients();
+  }
 
   const today = new Date().toLocaleDateString("en-MY", {
     weekday: "long",
@@ -143,12 +150,24 @@ export default function NursePage() {
         {/* Section header */}
         <div className="flex items-center justify-between mb-2.5">
           <h2 className="text-[13px] font-bold text-gray-900 tracking-tight">My Patients</h2>
-          {!loading && patients.length > 0 && (
-            <span className="inline-flex items-center gap-1 text-[10px] font-semibold text-primary bg-primary-50 px-1.5 py-0.5 rounded-full">
-              <span className="w-1.5 h-1.5 rounded-full bg-primary animate-pulse" />
-              {patients.length} active
-            </span>
-          )}
+          <div className="flex items-center gap-2">
+            {!loading && patients.length > 0 && (
+              <span className="inline-flex items-center gap-1 text-[10px] font-semibold text-primary bg-primary-50 px-1.5 py-0.5 rounded-full">
+                <span className="w-1.5 h-1.5 rounded-full bg-primary animate-pulse" />
+                {patients.length} active
+              </span>
+            )}
+            <button
+              onClick={() => setModal({ open: true, patient: null })}
+              className="inline-flex items-center gap-1 text-[11px] font-semibold text-white px-2.5 py-1 rounded-lg tap-scale transition-all"
+              style={{ background: "linear-gradient(135deg, #1D9E75, #0E5A42)" }}
+            >
+              <svg className="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M12 4v16m8-8H4" />
+              </svg>
+              Add
+            </button>
+          </div>
         </div>
 
         {/* Patient list */}
@@ -170,11 +189,57 @@ export default function NursePage() {
         ) : (
           <div className="space-y-2">
             {patients.map((p) => (
-              <PatientCard key={p.id} {...p} />
+              <PatientCard
+                key={p.id}
+                {...p}
+                onEdit={() => setModal({ open: true, patient: p })}
+                onDelete={() => setDeleteTarget(p)}
+              />
             ))}
           </div>
         )}
       </div>
+
+      {/* Add / Edit modal */}
+      {modal.open && (
+        <NursePatientModal
+          patient={modal.patient}
+          defaultWard={session?.user?.ward ?? ""}
+          onClose={() => setModal({ open: false })}
+          onSaved={fetchPatients}
+        />
+      )}
+
+      {/* Delete confirmation */}
+      {deleteTarget && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-2xl shadow-xl w-full max-w-xs p-5">
+            <div className="w-12 h-12 rounded-2xl bg-red-50 flex items-center justify-center mx-auto mb-3">
+              <svg className="w-6 h-6 text-red-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+              </svg>
+            </div>
+            <p className="text-sm font-bold text-gray-900 text-center">Delete Patient?</p>
+            <p className="text-xs text-gray-500 text-center mt-1">
+              <span className="font-semibold text-gray-700">{deleteTarget.name}</span> will be permanently removed.
+            </p>
+            <div className="flex gap-2 mt-4">
+              <button
+                onClick={() => setDeleteTarget(null)}
+                className="flex-1 py-2.5 border border-gray-200 text-gray-700 text-sm font-medium rounded-xl"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={() => handleDelete(deleteTarget)}
+                className="flex-1 py-2.5 bg-red-500 text-white text-sm font-semibold rounded-xl hover:bg-red-600"
+              >
+                Delete
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </>
   );
 }
