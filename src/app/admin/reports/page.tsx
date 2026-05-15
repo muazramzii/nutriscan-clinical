@@ -119,8 +119,10 @@ export default function ReportsPage() {
   const [alerts, setAlerts] = useState<AlertWithPatient[]>([]);
   const [loading, setLoading] = useState(true);
   const [exporting, setExporting] = useState(false);
+  const [selectedAlerts, setSelectedAlerts] = useState<Set<string>>(new Set());
+  const [deleting, setDeleting] = useState(false);
 
-  useEffect(() => {
+  function fetchData() {
     fetch("/api/admin/reports")
       .then((r) => r.json())
       .then((data) => {
@@ -128,7 +130,38 @@ export default function ReportsPage() {
         setAlerts(data.alerts ?? []);
         setLoading(false);
       });
-  }, []);
+  }
+
+  useEffect(() => { fetchData(); }, []);
+
+  async function handleDeleteSelected() {
+    if (selectedAlerts.size === 0) return;
+    setDeleting(true);
+    await Promise.all(
+      Array.from(selectedAlerts).map((id) =>
+        fetch(`/api/alerts/${id}`, { method: "DELETE" })
+      )
+    );
+    setSelectedAlerts(new Set());
+    setDeleting(false);
+    fetchData();
+  }
+
+  function toggleSelectAlert(id: string) {
+    setSelectedAlerts((prev) => {
+      const next = new Set(prev);
+      next.has(id) ? next.delete(id) : next.add(id);
+      return next;
+    });
+  }
+
+  function toggleSelectAll() {
+    if (selectedAlerts.size === filteredAlerts.length) {
+      setSelectedAlerts(new Set());
+    } else {
+      setSelectedAlerts(new Set(filteredAlerts.map((a) => a.id)));
+    }
+  }
 
   useEffect(() => {
     const cols =
@@ -139,6 +172,7 @@ export default function ReportsPage() {
         : WARD_COLS;
     setActiveCols(new Set(cols.map((c) => c.key)));
     setWardFilter("all");
+    setSelectedAlerts(new Set());
   }, [reportType]);
 
   const wards = ["all", ...Array.from(new Set(patients.map((p) => p.ward))).sort()];
@@ -437,9 +471,23 @@ export default function ReportsPage() {
                   {wardFilter !== "all" && ` · Ward ${wardFilter}`}
                 </p>
               </div>
-              <span className="text-2xs font-bold uppercase tracking-widest text-primary-700 bg-primary-50 ring-1 ring-inset ring-primary-100 px-2.5 py-1 rounded-full">
-                Preview
-              </span>
+              <div className="flex items-center gap-2">
+                {reportType === "alerts_summary" && selectedAlerts.size > 0 && (
+                  <button
+                    onClick={handleDeleteSelected}
+                    disabled={deleting}
+                    className="inline-flex items-center gap-1.5 text-xs font-semibold text-white bg-red-500 hover:bg-red-600 px-3 py-1.5 rounded-lg disabled:opacity-60 transition-colors"
+                  >
+                    <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                    </svg>
+                    {deleting ? "Deleting..." : `Delete (${selectedAlerts.size})`}
+                  </button>
+                )}
+                <span className="text-2xs font-bold uppercase tracking-widest text-primary-700 bg-primary-50 ring-1 ring-inset ring-primary-100 px-2.5 py-1 rounded-full">
+                  Preview
+                </span>
+              </div>
             </div>
 
             {loading ? (
@@ -449,6 +497,16 @@ export default function ReportsPage() {
                 <table className="w-full text-sm">
                   <thead className="bg-gray-50/50 border-b border-gray-100">
                     <tr>
+                      {reportType === "alerts_summary" && (
+                        <th className="px-4 py-3 w-8">
+                          <input
+                            type="checkbox"
+                            checked={filteredAlerts.length > 0 && selectedAlerts.size === filteredAlerts.length}
+                            onChange={toggleSelectAll}
+                            className="rounded border-gray-300 text-red-500 focus:ring-red-400"
+                          />
+                        </th>
+                      )}
                       {cols
                         .filter((c) => activeCols.has(c.key))
                         .map((c) => (
@@ -544,8 +602,16 @@ export default function ReportsPage() {
                           key={a.id}
                           className={`hover:bg-gray-50/60 transition-colors ${
                             a.isRead ? "opacity-60" : ""
-                          }`}
+                          } ${selectedAlerts.has(a.id) ? "bg-red-50/40" : ""}`}
                         >
+                          <td className="px-4 py-3 w-8">
+                            <input
+                              type="checkbox"
+                              checked={selectedAlerts.has(a.id)}
+                              onChange={() => toggleSelectAlert(a.id)}
+                              className="rounded border-gray-300 text-red-500 focus:ring-red-400"
+                            />
+                          </td>
                           {activeCols.has("patient") && (
                             <td className="px-4 py-3 font-semibold text-gray-900 whitespace-nowrap">
                               {a.patient.name}

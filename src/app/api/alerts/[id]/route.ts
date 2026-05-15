@@ -19,3 +19,16 @@ export async function PATCH(
 
   return NextResponse.json({ alert });
 }
+
+export async function DELETE(
+  _request: NextRequest,
+  { params }: { params: { id: string } }
+) {
+  const session = await getServerSession(authOptions);
+  if (!session || session.user.role !== "ADMIN") {
+    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  }
+
+  await prisma.alert.delete({ where: { id: params.id } });
+  return NextResponse.json({ success: true });
+}
