@@ -1,9 +1,15 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { DietType } from "@/types";
 
-const DIET_TYPES: DietType[] = ["DIABETIC", "LOW_SODIUM", "POST_SURGERY", "RENAL", "REGULAR"];
+const DIET_TYPES: { value: DietType; label: string; color: string }[] = [
+  { value: "DIABETIC",     label: "Diabetic",     color: "bg-blue-100 text-blue-700" },
+  { value: "LOW_SODIUM",   label: "Low Sodium",   color: "bg-purple-100 text-purple-700" },
+  { value: "POST_SURGERY", label: "Post Surgery", color: "bg-orange-100 text-orange-700" },
+  { value: "RENAL",        label: "Renal",        color: "bg-yellow-100 text-yellow-700" },
+  { value: "REGULAR",      label: "Regular",      color: "bg-green-100 text-green-700" },
+];
 
 interface PatientData {
   id?: string;
@@ -31,6 +37,8 @@ export function PatientModal({ patient, onClose, onSaved }: Props) {
   });
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
+  const [dietOpen, setDietOpen] = useState(false);
+  const dietRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     if (patient) {
@@ -43,6 +51,16 @@ export function PatientModal({ patient, onClose, onSaved }: Props) {
       });
     }
   }, [patient]);
+
+  useEffect(() => {
+    function handleClickOutside(e: MouseEvent) {
+      if (dietRef.current && !dietRef.current.contains(e.target as Node)) {
+        setDietOpen(false);
+      }
+    }
+    document.addEventListener("mousedown", handleClickOutside);
+    return () => document.removeEventListener("mousedown", handleClickOutside);
+  }, []);
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
@@ -67,7 +85,7 @@ export function PatientModal({ patient, onClose, onSaved }: Props) {
     });
 
     setSaving(false);
-    if (!res.ok) { setError("Gagal menyimpan. / Failed to save."); return; }
+    if (!res.ok) { setError("Failed to save."); return; }
     onSaved();
     onClose();
   }
@@ -87,12 +105,14 @@ export function PatientModal({ patient, onClose, onSaved }: Props) {
     );
   }
 
+  const selected = DIET_TYPES.find((d) => d.value === form.dietType)!;
+
   return (
     <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-50 p-4">
       <div className="bg-white rounded-xl shadow-xl w-full max-w-md p-6">
         <div className="flex items-center justify-between mb-5">
           <h2 className="font-bold text-gray-900">
-            {patient ? "Edit Pesakit / Edit Patient" : "Tambah Pesakit / Add Patient"}
+            {patient ? "Edit Patient" : "Add Patient"}
           </h2>
           <button onClick={onClose} className="text-gray-400 hover:text-gray-600">
             <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -102,33 +122,68 @@ export function PatientModal({ patient, onClose, onSaved }: Props) {
         </div>
 
         <form onSubmit={handleSubmit} className="space-y-3">
-          {input("Nama / Name", "name")}
+          {input("Name", "name")}
           <div className="grid grid-cols-2 gap-3">
-            {input("No. Katil / Bed No.", "bedNumber")}
+            {input("Bed No.", "bedNumber")}
             {input("Ward", "ward")}
           </div>
 
+          {/* Diet Type custom dropdown */}
           <div>
-            <label className="block text-xs font-medium text-gray-700 mb-1">Jenis Diet / Diet Type</label>
-            <select
-              value={form.dietType}
-              onChange={(e) => setForm((f) => ({ ...f, dietType: e.target.value as DietType }))}
-              className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary"
-            >
-              {DIET_TYPES.map((d) => <option key={d} value={d}>{d}</option>)}
-            </select>
+            <label className="block text-xs font-medium text-gray-700 mb-1">Diet Type</label>
+            <div ref={dietRef} className="relative">
+              <button
+                type="button"
+                onClick={() => setDietOpen((o) => !o)}
+                className="w-full flex items-center justify-between border border-gray-300 rounded-lg px-3 py-2 text-sm bg-white focus:outline-none focus:ring-2 focus:ring-primary"
+              >
+                <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium ${selected.color}`}>
+                  {selected.label}
+                </span>
+                <svg className={`w-4 h-4 text-gray-400 transition-transform ${dietOpen ? "rotate-180" : ""}`} fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+                </svg>
+              </button>
+
+              {dietOpen && (
+                <div className="absolute z-10 mt-1 w-full bg-white border border-gray-200 rounded-lg shadow-lg overflow-hidden">
+                  {DIET_TYPES.map((d) => (
+                    <button
+                      key={d.value}
+                      type="button"
+                      onClick={() => {
+                        setForm((f) => ({ ...f, dietType: d.value }));
+                        setDietOpen(false);
+                      }}
+                      className={`w-full flex items-center gap-2 px-3 py-2.5 text-sm hover:bg-gray-50 transition-colors ${
+                        form.dietType === d.value ? "bg-gray-50" : ""
+                      }`}
+                    >
+                      <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium ${d.color}`}>
+                        {d.label}
+                      </span>
+                      {form.dietType === d.value && (
+                        <svg className="w-4 h-4 text-primary ml-auto" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+                        </svg>
+                      )}
+                    </button>
+                  ))}
+                </div>
+              )}
+            </div>
           </div>
 
-          {input("Sasaran Kcal / Kcal Target", "kcalTarget", "number")}
+          {input("Kcal Target", "kcalTarget", "number")}
 
           {error && <p className="text-xs text-danger">{error}</p>}
 
           <div className="flex gap-3 pt-2">
             <button type="button" onClick={onClose} className="flex-1 py-2.5 border border-gray-300 text-gray-700 text-sm rounded-lg">
-              Batal / Cancel
+              Cancel
             </button>
             <button type="submit" disabled={saving} className="flex-1 py-2.5 bg-primary text-white text-sm font-semibold rounded-lg disabled:opacity-50">
-              {saving ? "Menyimpan..." : "Simpan / Save"}
+              {saving ? "Saving..." : "Save"}
             </button>
           </div>
         </form>

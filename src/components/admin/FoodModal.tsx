@@ -1,9 +1,16 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { FoodItemData, FoodCategory } from "@/types";
 
-const CATEGORIES: FoodCategory[] = ["STAPLE", "PROTEIN", "VEGETABLE", "FRUIT", "BEVERAGE", "OTHER"];
+const CATEGORIES: { value: FoodCategory; label: string; color: string }[] = [
+  { value: "STAPLE",    label: "Staple Food", color: "bg-amber-100 text-amber-700" },
+  { value: "PROTEIN",   label: "Protein",     color: "bg-red-100 text-red-700" },
+  { value: "VEGETABLE", label: "Vegetables",  color: "bg-green-100 text-green-700" },
+  { value: "FRUIT",     label: "Fruits",      color: "bg-pink-100 text-pink-700" },
+  { value: "BEVERAGE",  label: "Beverages",   color: "bg-blue-100 text-blue-700" },
+  { value: "OTHER",     label: "Others",      color: "bg-gray-100 text-gray-600" },
+];
 
 interface Props {
   item?: FoodItemData | null;
@@ -23,6 +30,8 @@ export function FoodModal({ item, onClose, onSaved }: Props) {
   });
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
+  const [catOpen, setCatOpen] = useState(false);
+  const catRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     if (item) {
@@ -37,6 +46,16 @@ export function FoodModal({ item, onClose, onSaved }: Props) {
       });
     }
   }, [item]);
+
+  useEffect(() => {
+    function handleClickOutside(e: MouseEvent) {
+      if (catRef.current && !catRef.current.contains(e.target as Node)) {
+        setCatOpen(false);
+      }
+    }
+    document.addEventListener("mousedown", handleClickOutside);
+    return () => document.removeEventListener("mousedown", handleClickOutside);
+  }, []);
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
@@ -63,10 +82,7 @@ export function FoodModal({ item, onClose, onSaved }: Props) {
     });
 
     setSaving(false);
-    if (!res.ok) {
-      setError("Failed to save.");
-      return;
-    }
+    if (!res.ok) { setError("Failed to save."); return; }
     onSaved();
     onClose();
   }
@@ -86,6 +102,8 @@ export function FoodModal({ item, onClose, onSaved }: Props) {
     );
   }
 
+  const selected = CATEGORIES.find((c) => c.value === form.category)!;
+
   return (
     <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-50 p-4">
       <div className="bg-white rounded-xl shadow-xl w-full max-w-md p-6">
@@ -104,17 +122,50 @@ export function FoodModal({ item, onClose, onSaved }: Props) {
           {field("Name (English)", "name")}
           {field("Name BM (Bahasa Malaysia)", "nameBM")}
 
+          {/* Category custom dropdown */}
           <div>
             <label className="block text-xs font-medium text-gray-700 mb-1">Category</label>
-            <select
-              value={form.category}
-              onChange={(e) => setForm((f) => ({ ...f, category: e.target.value as FoodCategory }))}
-              className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary"
-            >
-              {CATEGORIES.map((c) => (
-                <option key={c} value={c}>{c}</option>
-              ))}
-            </select>
+            <div ref={catRef} className="relative">
+              <button
+                type="button"
+                onClick={() => setCatOpen((o) => !o)}
+                className="w-full flex items-center justify-between border border-gray-300 rounded-lg px-3 py-2 text-sm bg-white focus:outline-none focus:ring-2 focus:ring-primary"
+              >
+                <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium ${selected.color}`}>
+                  {selected.label}
+                </span>
+                <svg className={`w-4 h-4 text-gray-400 transition-transform ${catOpen ? "rotate-180" : ""}`} fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+                </svg>
+              </button>
+
+              {catOpen && (
+                <div className="absolute z-10 mt-1 w-full bg-white border border-gray-200 rounded-lg shadow-lg overflow-hidden">
+                  {CATEGORIES.map((c) => (
+                    <button
+                      key={c.value}
+                      type="button"
+                      onClick={() => {
+                        setForm((f) => ({ ...f, category: c.value }));
+                        setCatOpen(false);
+                      }}
+                      className={`w-full flex items-center gap-2 px-3 py-2.5 text-sm hover:bg-gray-50 transition-colors ${
+                        form.category === c.value ? "bg-gray-50" : ""
+                      }`}
+                    >
+                      <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium ${c.color}`}>
+                        {c.label}
+                      </span>
+                      {form.category === c.value && (
+                        <svg className="w-4 h-4 text-primary ml-auto" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+                        </svg>
+                      )}
+                    </button>
+                  ))}
+                </div>
+              )}
+            </div>
           </div>
 
           <div className="grid grid-cols-2 gap-3">
