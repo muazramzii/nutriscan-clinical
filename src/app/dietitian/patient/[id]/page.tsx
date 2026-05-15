@@ -4,7 +4,7 @@ import { useEffect, useState } from "react";
 import { useParams, useRouter } from "next/navigation";
 import { DietitianNavbar } from "@/components/dietitian/DietitianNavbar";
 import { IntakeChart } from "@/components/dietitian/IntakeChart";
-import { DietTypeBadge } from "@/components/ui/Badge";
+import { DietTypeBadge, PriorityBadge } from "@/components/ui/Badge";
 import { ProgressBar } from "@/components/ui/ProgressBar";
 import { LoadingSpinner } from "@/components/ui/LoadingSpinner";
 import { DashboardPatient, AlertWithPatient } from "@/types";
@@ -127,7 +127,10 @@ export default function PatientDetailPage() {
         <div className="bg-white rounded-xl border border-gray-200 p-5 mb-6">
           <div className="flex items-start justify-between flex-wrap gap-4">
             <div>
-              <h1 className="text-xl font-bold text-gray-900">{patient.name}</h1>
+              <div className="flex items-center gap-3">
+                <h1 className="text-xl font-bold text-gray-900">{patient.name}</h1>
+                <PriorityBadge priority={patient.priority} />
+              </div>
               <p className="text-sm text-gray-500 mt-0.5">
                 Bed {patient.bedNumber} · Ward {patient.ward}
               </p>

@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { DashboardPatient } from "@/types";
-import { DietTypeBadge, StatusLabel } from "@/components/ui/Badge";
+import { DietTypeBadge, StatusLabel, PriorityBadge } from "@/components/ui/Badge";
 import { ProgressBar } from "@/components/ui/ProgressBar";
 
 interface Props {
@@ -12,11 +12,11 @@ interface Props {
 
 export function PatientTable({ patients, wardFilter }: Props) {
   const sortedPatients = [...patients].sort((a, b) => {
-    // 1. Critical status first
-    const aPriority = a.statusLabel === "Critical" ? 2 : a.statusLabel === "Low intake" ? 1 : 0;
-    const bPriority = b.statusLabel === "Critical" ? 2 : b.statusLabel === "Low intake" ? 1 : 0;
-    
-    if (aPriority !== bPriority) return bPriority - aPriority;
+    // 1. Priority first
+    const priorityMap = { HIGH: 3, MEDIUM: 2, LOW: 1, NONE: 0 };
+    if (priorityMap[a.priority] !== priorityMap[b.priority]) {
+      return priorityMap[b.priority] - priorityMap[a.priority];
+    }
     
     // 2. Then unread alert count
     if (a.alertCount !== b.alertCount) return b.alertCount - a.alertCount;
@@ -44,6 +44,9 @@ export function PatientTable({ patients, wardFilter }: Props) {
         <thead className="bg-gray-50 border-b border-gray-200">
           <tr>
             <th className="text-left px-4 py-3 text-xs font-semibold text-gray-500 uppercase tracking-wide">
+              Priority
+            </th>
+            <th className="text-left px-4 py-3 text-xs font-semibold text-gray-500 uppercase tracking-wide">
               Patient
             </th>
             <th className="text-left px-4 py-3 text-xs font-semibold text-gray-500 uppercase tracking-wide">
@@ -67,6 +70,9 @@ export function PatientTable({ patients, wardFilter }: Props) {
         <tbody className="divide-y divide-gray-50">
           {filtered.map((p) => (
             <tr key={p.id} className="hover:bg-gray-50 transition-colors">
+              <td className="px-4 py-3">
+                <PriorityBadge priority={p.priority} />
+              </td>
               <td className="px-4 py-3">
                 <p className="font-medium text-gray-900">{p.name}</p>
                 <p className="text-xs text-gray-400">

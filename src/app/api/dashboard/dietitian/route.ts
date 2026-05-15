@@ -57,12 +57,29 @@ export async function GET() {
     const percentageEaten =
       p.kcalTarget > 0 ? (todayKcal / p.kcalTarget) * 100 : 0;
 
-    let statusLabel: "On track" | "Low intake" | "Critical" | "No data" =
-      "No data";
+    let statusLabel = "No data";
+    let priority: "HIGH" | "MEDIUM" | "LOW" | "NONE" = "NONE";
+
     if (todayLogs.length > 0) {
-      if (percentageEaten >= 60) statusLabel = "On track";
-      else if (percentageEaten >= 30) statusLabel = "Low intake";
-      else statusLabel = "Critical";
+      if (percentageEaten >= 70) {
+        statusLabel = "Meeting Target";
+        priority = "LOW";
+      } else if (percentageEaten >= 40) {
+        statusLabel = "Partial Intake";
+        priority = "MEDIUM";
+      } else {
+        statusLabel = "Critical Intake";
+        priority = "HIGH";
+      }
+
+      // Escalation: if there are unread alerts, bump priority
+      if (p.alerts.length > 0) {
+        priority = "HIGH";
+        statusLabel = `Action Required (${p.alerts.length} alerts)`;
+      }
+    } else {
+      statusLabel = "No data yet";
+      priority = "NONE";
     }
 
     const mealStatus = {
@@ -128,6 +145,7 @@ export async function GET() {
       todayFat: Math.round(todayFat),
       percentageEaten: Math.round(percentageEaten),
       statusLabel,
+      priority,
       mealStatus,
       weeklyData,
       alertCount: p.alerts.length,
