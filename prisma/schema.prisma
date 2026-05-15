@@ -1,0 +1,161 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum Role {
+  NURSE
+  DIETITIAN
+  ADMIN
+}
+
+enum DietType {
+  DIABETIC
+  LOW_SODIUM
+  POST_SURGERY
+  RENAL
+  REGULAR
+}
+
+enum MealType {
+  BREAKFAST
+  LUNCH
+  DINNER
+}
+
+enum MealStatus {
+  PENDING_AFTER
+  COMPLETE
+}
+
+enum PhotoType {
+  BEFORE
+  AFTER
+}
+
+enum FoodCategory {
+  STAPLE
+  PROTEIN
+  VEGETABLE
+  FRUIT
+  BEVERAGE
+  OTHER
+}
+
+enum AlertType {
+  LOW_INTAKE
+  CRITICAL_INTAKE
+  MISSED_MEAL
+}
+
+model User {
+  id        String   @id @default(cuid())
+  name      String
+  email     String   @unique
+  password  String
+  role      Role
+  ward      String?
+  createdAt DateTime @default(now())
+
+  mealLogs MealLog[]
+  alerts   Alert[]   @relation("DietitianAlerts")
+}
+
+model Patient {
+  id         String   @id @default(cuid())
+  name       String
+  bedNumber  String
+  ward       String
+  dietType   DietType
+  kcalTarget Int
+  isActive   Boolean  @default(true)
+  createdAt  DateTime @default(now())
+
+  mealLogs MealLog[]
+  alerts   Alert[]
+}
+
+model MealLog {
+  id        String     @id @default(cuid())
+  patientId String
+  nurseId   String
+  mealType  MealType
+  date      DateTime   @default(now())
+  status    MealStatus @default(PENDING_AFTER)
+  createdAt DateTime   @default(now())
+
+  patient         Patient          @relation(fields: [patientId], references: [id])
+  nurse           User             @relation(fields: [nurseId], references: [id])
+  photos          MealPhoto[]
+  mealFoodItems   MealFoodItem[]
+  nutritionResult NutritionResult?
+}
+
+model MealPhoto {
+  id        String    @id @default(cuid())
+  mealLogId String
+  type      PhotoType
+  imageUrl  String
+  takenAt   DateTime  @default(now())
+
+  mealLog MealLog @relation(fields: [mealLogId], references: [id])
+}
+
+model FoodItem {
+  id             String       @id @default(cuid())
+  name           String
+  nameBM         String
+  category       FoodCategory
+  kcalPer100g    Float
+  carbsPer100g   Float
+  proteinPer100g Float
+  fatPer100g     Float
+  isActive       Boolean      @default(true)
+
+  mealFoodItems MealFoodItem[]
+}
+
+model MealFoodItem {
+  id         String    @id @default(cuid())
+  mealLogId  String
+  foodItemId String?
+  portionG   Float
+  photoType  PhotoType
+  kcalTotal  Float
+  nameBM     String
+  nameEN     String
+
+  mealLog  MealLog   @relation(fields: [mealLogId], references: [id])
+  foodItem FoodItem? @relation(fields: [foodItemId], references: [id])
+}
+
+model NutritionResult {
+  id              String @id @default(cuid())
+  mealLogId       String @unique
+  kcalBefore      Float
+  kcalAfter       Float
+  kcalActual      Float
+  carbsActual     Float
+  proteinActual   Float
+  fatActual       Float
+  percentageEaten Float
+
+  mealLog MealLog @relation(fields: [mealLogId], references: [id])
+}
+
+model Alert {
+  id          String    @id @default(cuid())
+  patientId   String
+  dietitianId String?
+  type        AlertType
+  message     String
+  isRead      Boolean   @default(false)
+  createdAt   DateTime  @default(now())
+
+  patient   Patient @relation(fields: [patientId], references: [id])
+  dietitian User?   @relation("DietitianAlerts", fields: [dietitianId], references: [id])
+}
