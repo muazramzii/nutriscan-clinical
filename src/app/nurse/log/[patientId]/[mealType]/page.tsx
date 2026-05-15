@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useParams, useRouter } from "next/navigation";
 import { MealPhotoUploader } from "@/components/nurse/MealPhotoUploader";
 import { FoodAnalysisResult } from "@/components/nurse/FoodAnalysisResult";
@@ -8,6 +8,7 @@ import { LoadingSpinner } from "@/components/ui/LoadingSpinner";
 import { AnalysisResult } from "@/types";
 
 type FlowState =
+  | "loading"
   | "upload-before"
   | "analyzing-before"
   | "confirm-before"
@@ -66,7 +67,7 @@ export default function MealLogFlowPage() {
   const patientId = params.patientId as string;
   const mealType = params.mealType as string;
 
-  const [flowState, setFlowState] = useState<FlowState>("upload-before");
+  const [flowState, setFlowState] = useState<FlowState>("loading");
   const [beforeAnalysis, setBeforeAnalysis] = useState<AnalysisResult | null>(null);
   const [beforeImageUrl, setBeforeImageUrl] = useState<string>("");
   const [afterAnalysis, setAfterAnalysis] = useState<AnalysisResult | null>(null);
@@ -82,6 +83,61 @@ export default function MealLogFlowPage() {
   const [saving, setSaving] = useState(false);
 
   const mealLabel = MEAL_LABELS[mealType] ?? mealType;
+
+  useEffect(() => {
+    async function recoverPendingMealLog() {
+      try {
+        const res = await fetch(
+          `/api/meal-logs/check?patientId=${patientId}&mealType=${mealType}`
+        );
+        if (!res.ok) throw new Error("Failed to check pending meal log");
+        const data = await res.json();
+
+        if (data.mealLog) {
+          setMealLogId(data.mealLog.id);
+
+          const beforeItems = data.mealLog.mealFoodItems || [];
+          const beforePhoto = data.mealLog.photos?.find(
+            (photo: any) => photo.type === "BEFORE"
+          );
+
+          if (beforeItems.length > 0 && beforePhoto) {
+            const reconstructedAnalysis: AnalysisResult = {
+              items: beforeItems.map((item: any) => ({
+                nameEN: item.nameEN,
+                nameBM: item.nameBM,
+                portionG: item.portionG,
+                kcalTotal: item.kcalTotal,
+                carbsG: 0,
+                proteinG: 0,
+                fatG: 0,
+              })),
+              totalKcal: beforeItems.reduce(
+                (sum: number, item: any) => sum + item.kcalTotal,
+                0
+              ),
+              totalCarbs: 0,
+              totalProtein: 0,
+              totalFat: 0,
+              confidence: 0,
+            };
+            setBeforeAnalysis(reconstructedAnalysis);
+            setBeforeImageUrl(beforePhoto.imageUrl);
+            setFlowState("upload-after");
+          } else {
+            setFlowState("upload-before");
+          }
+        } else {
+          setFlowState("upload-before");
+        }
+      } catch (error) {
+        console.error(error);
+        setFlowState("upload-before");
+      }
+    }
+
+    recoverPendingMealLog();
+  }, [patientId, mealType]);
 
   async function handleBeforeSelected(file: File) {
     setFlowState("analyzing-before");
@@ -215,9 +271,18 @@ export default function MealLogFlowPage() {
         </div>
       </div>
 
-      {flowState !== "success" && <StepIndicator step={step} />}
+      {flowState === "loading" ? (
+        <div className="flex flex-col items-center justify-center py-16 gap-4">
+          <LoadingSpinner size="lg" />
+          <p className="text-sm text-gray-600 font-medium">
+            Recovering saved meal log...
+          </p>
+        </div>
+      ) : (
+        flowState !== "success" && <StepIndicator step={step} />
+      )}
 
-      {error && (
+      {flowState !== "loading" && error && (
         <div className="mb-4 bg-danger-50 border border-danger-100 text-danger text-sm px-4 py-3 rounded-xl">
           {error}
         </div>

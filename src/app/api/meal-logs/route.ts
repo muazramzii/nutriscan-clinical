@@ -12,15 +12,35 @@ export async function POST(request: NextRequest) {
   const body = await request.json();
   const { patientId, mealType, imageUrl, analysisResult } = body;
 
-  const mealLog = await prisma.mealLog.create({
-    data: {
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
+  const tomorrow = new Date(today);
+  tomorrow.setDate(tomorrow.getDate() + 1);
+
+  let mealLog = await prisma.mealLog.findFirst({
+    where: {
       patientId,
-      nurseId: session.user.id,
       mealType,
-      date: new Date(),
       status: "PENDING_AFTER",
+      date: { gte: today, lt: tomorrow },
     },
   });
+
+  if (!mealLog) {
+    mealLog = await prisma.mealLog.create({
+      data: {
+        patientId,
+        nurseId: session.user.id,
+        mealType,
+        date: new Date(),
+        status: "PENDING_AFTER",
+      },
+    });
+  } else {
+    await prisma.mealFoodItem.deleteMany({
+      where: { mealLogId: mealLog.id, photoType: "BEFORE" },
+    });
+  }
 
   await prisma.mealPhoto.create({
     data: {
@@ -39,7 +59,7 @@ export async function POST(request: NextRequest) {
           portionG: number;
           kcalTotal: number;
         }) => ({
-          mealLogId: mealLog.id,
+          mealLogId: mealLog!.id,
           portionG: item.portionG,
           photoType: "BEFORE",
           kcalTotal: item.kcalTotal,
