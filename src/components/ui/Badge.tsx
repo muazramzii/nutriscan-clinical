@@ -64,20 +64,41 @@ export function CategoryBadge({ category }: { category: FoodCategory }) {
   );
 }
 
+export function PriorityBadge({
+  priority,
+}: {
+  priority: "HIGH" | "MEDIUM" | "LOW" | "NONE";
+}) {
+  const map = {
+    HIGH: { label: "High Priority", className: "bg-danger text-white" },
+    MEDIUM: { label: "Medium", className: "bg-warning text-white" },
+    LOW: { label: "Stable", className: "bg-primary text-white" },
+    NONE: { label: "New Admission", className: "bg-gray-400 text-white" },
+  };
+  const { label, className } = map[priority];
+  return (
+    <span
+      className={`inline-flex items-center px-2 py-0.5 rounded-md text-[10px] font-bold uppercase tracking-wider ${className}`}
+    >
+      {label}
+    </span>
+  );
+}
+
 export function StatusLabel({
   status,
 }: {
-  status: "On track" | "Low intake" | "Critical" | "No data";
+  status: string;
 }) {
-  const map = {
-    "On track": "bg-primary-50 text-primary",
-    "Low intake": "bg-warning-50 text-warning",
-    Critical: "bg-danger-50 text-danger",
-    "No data": "bg-gray-100 text-gray-500",
-  };
+  let className = "bg-gray-100 text-gray-500";
+  if (status.includes("Meeting")) className = "bg-primary-50 text-primary";
+  if (status.includes("Partial")) className = "bg-warning-50 text-warning";
+  if (status.includes("Critical")) className = "bg-danger-50 text-danger";
+  if (status.includes("Action")) className = "bg-danger-50 text-danger animate-pulse";
+
   return (
     <span
-      className={`inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium ${map[status]}`}
+      className={`inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium ${className}`}
     >
       {status}
     </span>

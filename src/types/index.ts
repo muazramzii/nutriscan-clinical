@@ -68,7 +68,8 @@ export interface DashboardPatient {
   todayProtein: number;
   todayFat: number;
   percentageEaten: number;
-  statusLabel: "On track" | "Low intake" | "Critical" | "No data";
+  statusLabel: string;
+  priority: "HIGH" | "MEDIUM" | "LOW" | "NONE";
   mealStatus: MealLogStatus;
   weeklyData: { 
     date: string; 

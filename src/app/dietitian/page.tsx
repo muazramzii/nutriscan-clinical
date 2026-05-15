@@ -109,6 +109,7 @@ export default function DietitianDashboard() {
             loggedMeals={data.loggedMealsToday}
             totalMeals={data.totalMealsToday}
             activeAlerts={data.unreadAlertCount}
+            highPriorityCount={data.patients.filter(p => p.priority === "HIGH").length}
           />
         )}
 
