@@ -111,7 +111,7 @@ export async function PATCH(
           patientId: mealLog.patientId,
           dietitianId: dietitian?.id ?? null,
           type: "CRITICAL_INTAKE",
-          message: `KRITIKAL: Pesakit hanya makan ${Math.round(percentageEaten)}% makanan (${Math.round(kcalActual)} kcal). / CRITICAL: Patient ate only ${Math.round(percentageEaten)}% of meal.`,
+          message: `CRITICAL: Patient ate only ${Math.round(percentageEaten)}% of meal (${Math.round(kcalActual)} kcal).`,
         },
       });
     } else if (percentageEaten < 50) {
@@ -120,7 +120,7 @@ export async function PATCH(
           patientId: mealLog.patientId,
           dietitianId: dietitian?.id ?? null,
           type: "LOW_INTAKE",
-          message: `Pengambilan rendah: Pesakit makan ${Math.round(percentageEaten)}% makanan (${Math.round(kcalActual)} kcal). / Low intake: Patient ate ${Math.round(percentageEaten)}% of meal.`,
+          message: `Low intake: Patient ate ${Math.round(percentageEaten)}% of meal (${Math.round(kcalActual)} kcal).`,
         },
       });
     }
