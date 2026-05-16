@@ -4,7 +4,6 @@ import { useState, useEffect } from "react";
 import { useParams, useRouter } from "next/navigation";
 import { MealPhotoUploader } from "@/components/nurse/MealPhotoUploader";
 import { FoodAnalysisResult } from "@/components/nurse/FoodAnalysisResult";
-import { LoadingSpinner } from "@/components/ui/LoadingSpinner";
 import { AnalysisResult } from "@/types";
 
 type FlowState =
@@ -124,12 +123,20 @@ export default function MealLogFlowPage() {
 
   // Recover any pending meal log (e.g. nurse uploaded BEFORE photo, then page reloaded)
   useEffect(() => {
+    const controller = new AbortController();
+    const timeout = setTimeout(() => {
+      controller.abort();
+      setFlowState("upload-before");
+    }, 2500);
+
     async function recoverPendingMealLog() {
       try {
         const res = await fetch(
-          `/api/meal-logs/check?patientId=${patientId}&mealType=${mealType}`
+          `/api/meal-logs/check?patientId=${patientId}&mealType=${mealType}`,
+          { signal: controller.signal }
         );
-        if (!res.ok) throw new Error("Failed to check pending meal log");
+        clearTimeout(timeout);
+        if (!res.ok) { setFlowState("upload-before"); return; }
         const data = await res.json();
 
         if (data.mealLog) {
@@ -151,10 +158,7 @@ export default function MealLogFlowPage() {
                 proteinG: 0,
                 fatG: 0,
               })),
-              totalKcal: beforeItems.reduce(
-                (sum, item) => sum + item.kcalTotal,
-                0
-              ),
+              totalKcal: beforeItems.reduce((sum, item) => sum + item.kcalTotal, 0),
               totalCarbs: 0,
               totalProtein: 0,
               totalFat: 0,
@@ -169,13 +173,15 @@ export default function MealLogFlowPage() {
         } else {
           setFlowState("upload-before");
         }
-      } catch (e) {
-        console.error(e);
+      } catch (e: unknown) {
+        clearTimeout(timeout);
+        if ((e as { name?: string }).name !== "AbortError") console.error(e);
         setFlowState("upload-before");
       }
     }
 
     recoverPendingMealLog();
+    return () => { clearTimeout(timeout); controller.abort(); };
   }, [patientId, mealType]);
 
   async function handleBeforeSelected(file: File) {

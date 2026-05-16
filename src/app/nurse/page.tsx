@@ -17,9 +17,12 @@ export default function NursePage() {
 
   function fetchPatients() {
     fetch("/api/patients")
-      .then((r) => r.json())
+      .then((r) => {
+        if (!r.ok) throw new Error(`HTTP ${r.status}`);
+        return r.json();
+      })
       .then((data) => {
-        const mapped = data.patients.map(
+        const mapped = (data.patients ?? []).map(
           (p: {
             id: string;
             name: string;
@@ -40,7 +43,8 @@ export default function NursePage() {
         );
         setPatients(mapped);
         setLoading(false);
-      });
+      })
+      .catch(() => setLoading(false));
   }
 
   useEffect(() => { fetchPatients(); }, []);
@@ -87,9 +91,11 @@ export default function NursePage() {
                 style={{ objectPosition: "50% 38%", transform: "scale(1.55)" }}
               />
             </div>
-            <div>
-              <p className="text-[13px] font-bold text-gray-900 leading-tight tracking-tight">NutriScan</p>
-              <p className="text-[9px] text-gray-500 leading-tight">Clinical Diet System</p>
+            <div className="flex items-center gap-1.5">
+              <span className="text-[13px] font-bold text-gray-900 leading-tight tracking-tight">NutriScan</span>
+              <span className="inline-flex items-center px-1.5 py-0.5 rounded-full text-[9px] font-bold text-primary-700 bg-primary-50 ring-1 ring-inset ring-primary-100 tracking-tight leading-none">
+                Nurse Panel
+              </span>
             </div>
           </div>
           <button

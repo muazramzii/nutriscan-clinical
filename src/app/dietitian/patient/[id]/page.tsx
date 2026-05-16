@@ -37,37 +37,257 @@ export default function PatientDetailPage() {
   const [alerts, setAlerts] = useState<AlertWithPatient[]>([]);
   const [interventions, setInterventions] = useState<Intervention[]>([]);
   const [newIntervention, setNewIntervention] = useState("");
+  const [savingIntervention, setSavingIntervention] = useState(false);
+  const [interventionError, setInterventionError] = useState("");
+  const [exporting, setExporting] = useState(false);
   const [loading, setLoading] = useState(true);
+  const [fetchError, setFetchError] = useState(false);
   const [unreadCount, setUnreadCount] = useState(0);
 
   useEffect(() => {
-    Promise.all([
-      fetch("/api/dashboard/dietitian").then((r) => r.json()),
-      fetch("/api/alerts").then((r) => r.json()),
-      fetch(`/api/patients/${patientId}/interventions`).then((r) => r.json()),
-    ]).then(([dashData, alertsData, interData]) => {
-      const found = dashData.patients.find(
-        (p: DashboardPatient) => p.id === patientId
-      );
-      setPatient(found ?? null);
-      setAlerts(alertsData.alerts ?? []);
-      setInterventions(interData.interventions ?? []);
-      setUnreadCount(dashData.unreadAlertCount ?? 0);
-      setLoading(false);
-    });
+    async function safeJson(res: Response, fallback: unknown) {
+      try { return res.ok ? await res.json() : fallback; }
+      catch { return fallback; }
+    }
+
+    async function load() {
+      try {
+        const [dashRes, alertsRes, interRes] = await Promise.all([
+          fetch("/api/dashboard/dietitian"),
+          fetch("/api/alerts"),
+          fetch(`/api/patients/${patientId}/interventions`),
+        ]);
+
+        const [dashData, alertsData, interData] = await Promise.all([
+          safeJson(dashRes, { patients: [], unreadAlertCount: 0 }),
+          safeJson(alertsRes, { alerts: [] }),
+          safeJson(interRes, { interventions: [] }),
+        ]);
+
+        const found = (dashData as { patients?: DashboardPatient[] }).patients?.find(
+          (p) => p.id === patientId
+        );
+        setPatient(found ?? null);
+        setAlerts((alertsData as { alerts?: AlertWithPatient[] }).alerts ?? []);
+        setInterventions((interData as { interventions?: Intervention[] }).interventions ?? []);
+        setUnreadCount((dashData as { unreadAlertCount?: number }).unreadAlertCount ?? 0);
+      } catch (err) {
+        console.error("Patient detail load error:", err);
+        setFetchError(true);
+      } finally {
+        setLoading(false);
+      }
+    }
+    load();
   }, [patientId]);
 
   async function handleAddIntervention() {
     if (!newIntervention.trim()) return;
-    const res = await fetch(`/api/patients/${patientId}/interventions`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ content: newIntervention }),
+    setSavingIntervention(true);
+    setInterventionError("");
+    try {
+      const res = await fetch(`/api/patients/${patientId}/interventions`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ content: newIntervention }),
+      });
+      if (res.ok) {
+        const { intervention } = await res.json();
+        setInterventions((prev) => [intervention, ...prev]);
+        setNewIntervention("");
+      } else {
+        const err = await res.json().catch(() => ({}));
+        setInterventionError(err.error ?? "Failed to save. Please try again.");
+      }
+    } catch {
+      setInterventionError("Network error. Please try again.");
+    } finally {
+      setSavingIntervention(false);
+    }
+  }
+
+  async function handleExportPDF() {
+    if (!patient) return;
+    setExporting(true);
+    try {
+      const { default: jsPDF } = await import("jspdf");
+      const { default: autoTable } = await import("jspdf-autotable");
+      const doc = new jsPDF({ orientation: "portrait", unit: "mm", format: "a4" });
+      const pageW = doc.internal.pageSize.getWidth();
+      const dateStr = new Date().toLocaleDateString("en-MY", { weekday: "long", year: "numeric", month: "long", day: "numeric" });
+      const DIET_LABELS: Record<string, string> = { DIABETIC: "Diabetic", LOW_SODIUM: "Low Sodium", POST_SURGERY: "Post Surgery", RENAL: "Renal", REGULAR: "Regular" };
+      const green: [number, number, number] = [29, 158, 117];
+
+      // ── Header bar ──
+      doc.setFillColor(...green);
+      doc.rect(0, 0, pageW, 22, "F");
+      doc.setTextColor(255, 255, 255);
+      doc.setFont("helvetica", "bold");
+      doc.setFontSize(14);
+      doc.text("NutriScan Clinical — Patient Summary", 14, 10);
+      doc.setFontSize(8);
+      doc.setFont("helvetica", "normal");
+      doc.text(`Generated: ${dateStr}`, 14, 16);
+
+      // ── Patient info block ──
+      doc.setTextColor(0, 0, 0);
+      doc.setFontSize(16);
+      doc.setFont("helvetica", "bold");
+      doc.text(patient.name, 14, 32);
+      doc.setFontSize(9);
+      doc.setFont("helvetica", "normal");
+      doc.setTextColor(80);
+      doc.text(`Bed ${patient.bedNumber}  ·  Ward ${patient.ward}  ·  ${DIET_LABELS[patient.dietType] ?? patient.dietType}`, 14, 38);
+      doc.setTextColor(0);
+
+      // Right-side kcal box
+      doc.setFillColor(245, 250, 246);
+      doc.roundedRect(pageW - 70, 26, 56, 18, 3, 3, "F");
+      doc.setFontSize(8);
+      doc.setTextColor(80);
+      doc.text("KCAL TARGET", pageW - 67, 32);
+      doc.setFontSize(16);
+      doc.setFont("helvetica", "bold");
+      doc.setTextColor(...green);
+      doc.text(`${patient.kcalTarget.toLocaleString()}`, pageW - 67, 40);
+      doc.setFontSize(9);
+      doc.setFont("helvetica", "normal");
+      doc.setTextColor(80);
+      doc.text(`Today: ${patient.todayKcal} kcal (${patient.percentageEaten}%)`, pageW - 67, 46);
+
+      // ── Section: Today's Meals ──
+      doc.setTextColor(0);
+      doc.setFont("helvetica", "bold");
+      doc.setFontSize(10);
+      doc.text("Today's Meals", 14, 56);
+      const MEALS = ["BREAKFAST", "LUNCH", "DINNER"] as const;
+      autoTable(doc, {
+        startY: 59,
+        head: [["Meal", "Status", "Kcal"]],
+        body: MEALS.map((m) => {
+          const status = patient.mealStatus[m] ?? null;
+          const kcal = status === "COMPLETE" ? `${Math.round(patient.todayKcal / 3)} kcal` : "—";
+          const label = m.charAt(0) + m.slice(1).toLowerCase();
+          return [label, status === "COMPLETE" ? "Complete" : status === "PENDING_AFTER" ? "In progress" : "Not recorded", kcal];
+        }),
+        styles: { fontSize: 8, cellPadding: 3 },
+        headStyles: { fillColor: green, textColor: 255, fontStyle: "bold" },
+        alternateRowStyles: { fillColor: [245, 250, 246] },
+        margin: { left: 14, right: 14 },
+      });
+
+      // ── Section: Nutrition Breakdown ──
+      const afterMeals = (doc as unknown as { lastAutoTable: { finalY: number } }).lastAutoTable.finalY + 6;
+      doc.setFont("helvetica", "bold");
+      doc.setFontSize(10);
+      doc.setTextColor(0);
+      doc.text("Nutrition Breakdown", 14, afterMeals);
+      const macroTarget = {
+        carbs: Math.round((patient.kcalTarget * 0.55) / 4),
+        protein: Math.round((patient.kcalTarget * 0.2) / 4),
+        fat: Math.round((patient.kcalTarget * 0.25) / 9),
+      };
+      autoTable(doc, {
+        startY: afterMeals + 3,
+        head: [["Nutrient", "Actual", "Target", "% of Target"]],
+        body: [
+          ["Calories (kcal)", patient.todayKcal, patient.kcalTarget, `${patient.percentageEaten}%`],
+          ["Carbohydrates (g)", patient.todayCarbs, macroTarget.carbs, patient.todayCarbs > 0 ? `${Math.round((patient.todayCarbs / macroTarget.carbs) * 100)}%` : "—"],
+          ["Protein (g)", patient.todayProtein, macroTarget.protein, patient.todayProtein > 0 ? `${Math.round((patient.todayProtein / macroTarget.protein) * 100)}%` : "—"],
+          ["Fat (g)", patient.todayFat, macroTarget.fat, patient.todayFat > 0 ? `${Math.round((patient.todayFat / macroTarget.fat) * 100)}%` : "—"],
+        ],
+        styles: { fontSize: 8, cellPadding: 3 },
+        headStyles: { fillColor: green, textColor: 255, fontStyle: "bold" },
+        alternateRowStyles: { fillColor: [245, 250, 246] },
+        margin: { left: 14, right: 14 },
+      });
+
+      // ── Section: 7-Day Trend ──
+      const afterNutrition = (doc as unknown as { lastAutoTable: { finalY: number } }).lastAutoTable.finalY + 6;
+      doc.setFont("helvetica", "bold");
+      doc.setFontSize(10);
+      doc.setTextColor(0);
+      doc.text("7-Day Intake Trend", 14, afterNutrition);
+      autoTable(doc, {
+        startY: afterNutrition + 3,
+        head: [["Day", "Calories (kcal)", "Carbs (g)", "Protein (g)", "Fat (g)"]],
+        body: patient.weeklyData.map((d) => [d.date, d.kcal, d.carbs, d.protein, d.fat]),
+        styles: { fontSize: 8, cellPadding: 3 },
+        headStyles: { fillColor: green, textColor: 255, fontStyle: "bold" },
+        alternateRowStyles: { fillColor: [245, 250, 246] },
+        margin: { left: 14, right: 14 },
+      });
+
+      // ── Section: Alerts ──
+      const patientAlerts = alerts.filter((a) => a.patientId === patientId);
+      if (patientAlerts.length > 0) {
+        const afterTrend = (doc as unknown as { lastAutoTable: { finalY: number } }).lastAutoTable.finalY + 6;
+        doc.setFont("helvetica", "bold");
+        doc.setFontSize(10);
+        doc.setTextColor(0);
+        doc.text("Alerts", 14, afterTrend);
+        autoTable(doc, {
+          startY: afterTrend + 3,
+          head: [["Type", "Message", "Status"]],
+          body: patientAlerts.map((a) => [
+            a.type === "CRITICAL_INTAKE" ? "Critical" : a.type === "LOW_INTAKE" ? "Low Intake" : "Info",
+            a.message,
+            a.isRead ? "Read" : "Unread",
+          ]),
+          styles: { fontSize: 8, cellPadding: 3, overflow: "linebreak" },
+          headStyles: { fillColor: [220, 38, 38], textColor: 255, fontStyle: "bold" },
+          alternateRowStyles: { fillColor: [254, 242, 242] },
+          columnStyles: { 1: { cellWidth: 110 } },
+          margin: { left: 14, right: 14 },
+        });
+      }
+
+      // ── Section: Interventions ──
+      if (interventions.length > 0) {
+        const afterAlerts = (doc as unknown as { lastAutoTable: { finalY: number } }).lastAutoTable.finalY + 6;
+        doc.setFont("helvetica", "bold");
+        doc.setFontSize(10);
+        doc.setTextColor(0);
+        doc.text("Intervention Notes", 14, afterAlerts);
+        autoTable(doc, {
+          startY: afterAlerts + 3,
+          head: [["Date", "Dietitian", "Note"]],
+          body: interventions.map((i) => [
+            new Date(i.createdAt).toLocaleDateString("en-MY", { day: "numeric", month: "short", year: "numeric" }),
+            i.dietitian.name,
+            i.content,
+          ]),
+          styles: { fontSize: 8, cellPadding: 3, overflow: "linebreak" },
+          headStyles: { fillColor: green, textColor: 255, fontStyle: "bold" },
+          alternateRowStyles: { fillColor: [245, 250, 246] },
+          columnStyles: { 2: { cellWidth: 110 } },
+          margin: { left: 14, right: 14 },
+        });
+      }
+
+      // ── Footer ──
+      const pageCount = (doc as unknown as { internal: { getNumberOfPages: () => number } }).internal.getNumberOfPages();
+      for (let i = 1; i <= pageCount; i++) {
+        doc.setPage(i);
+        doc.setFontSize(7);
+        doc.setTextColor(160);
+        doc.setFont("helvetica", "normal");
+        doc.text(`NutriScan Clinical — Confidential`, 14, 290);
+        doc.text(`Page ${i} of ${pageCount}`, pageW - 14, 290, { align: "right" });
+      }
+
+      doc.save(`clinical-summary-${patient.name.replace(/\s+/g, "-")}-${new Date().toISOString().slice(0, 10)}.pdf`);
+    } finally {
+      setExporting(false);
+    }
+  }
+
+  async function handleDeleteIntervention(interventionId: string) {
+    const res = await fetch(`/api/patients/${patientId}/interventions/${interventionId}`, {
+      method: "DELETE",
     });
     if (res.ok) {
-      const { intervention } = await res.json();
-      setInterventions([intervention, ...interventions]);
-      setNewIntervention("");
+      setInterventions((prev) => prev.filter((i) => i.id !== interventionId));
     }
   }
 
@@ -84,6 +304,17 @@ export default function PatientDetailPage() {
       <div className="flex flex-col items-center justify-center min-h-screen gap-3">
         <LoadingSpinner size="lg" />
         <p className="text-xs text-gray-400">Loading patient…</p>
+      </div>
+    );
+  }
+
+  if (fetchError) {
+    return (
+      <div className="flex flex-col items-center justify-center min-h-screen gap-3">
+        <p className="text-sm font-semibold text-red-500">Failed to load patient data.</p>
+        <button onClick={() => router.back()} className="text-xs text-primary underline">
+          Go back
+        </button>
       </div>
     );
   }
@@ -402,13 +633,16 @@ export default function PatientDetailPage() {
                     placeholder="Record clinical intervention…"
                     className="w-full text-sm border border-gray-200 rounded-xl p-3 bg-gray-50/60 focus:bg-white focus:outline-none focus:ring-2 focus:ring-primary/30 focus:border-primary min-h-[80px] resize-none transition-all"
                   />
+                  {interventionError && (
+                    <p className="text-xs text-red-500 font-medium">{interventionError}</p>
+                  )}
                   <button
                     onClick={handleAddIntervention}
-                    disabled={!newIntervention.trim()}
+                    disabled={!newIntervention.trim() || savingIntervention}
                     className="w-full py-2.5 text-white text-xs font-bold rounded-xl disabled:opacity-50 disabled:cursor-not-allowed shadow-glow-sm tap-scale transition-all"
                     style={{ background: "linear-gradient(135deg, #1D9E75, #0E5A42)" }}
                   >
-                    Log Intervention
+                    {savingIntervention ? "Saving…" : "Log Intervention"}
                   </button>
                 </div>
 
@@ -416,7 +650,7 @@ export default function PatientDetailPage() {
                   {interventions.map((item) => (
                     <div
                       key={item.id}
-                      className="border-l-2 border-primary pl-3 py-1.5"
+                      className="group border-l-2 border-primary pl-3 py-1.5"
                     >
                       <p className="text-sm text-gray-800 leading-relaxed">
                         {item.content}
@@ -432,6 +666,15 @@ export default function PatientDetailPage() {
                             month: "short",
                           })}
                         </span>
+                        <button
+                          onClick={() => handleDeleteIntervention(item.id)}
+                          className="ml-auto opacity-0 group-hover:opacity-100 w-5 h-5 rounded flex items-center justify-center text-gray-400 hover:text-red-500 hover:bg-red-50 transition-all"
+                          title="Delete"
+                        >
+                          <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                          </svg>
+                        </button>
                       </div>
                     </div>
                   ))}
@@ -440,13 +683,27 @@ export default function PatientDetailPage() {
             </div>
 
             <button
-              onClick={() => window.print()}
-              className="w-full inline-flex items-center justify-center gap-2 py-3 bg-white border border-gray-200 text-gray-700 text-sm font-bold rounded-2xl hover:bg-gray-50 hover:border-gray-300 shadow-card tap-scale transition-all"
+              onClick={handleExportPDF}
+              disabled={exporting}
+              className="w-full inline-flex items-center justify-center gap-2 py-3 text-white text-sm font-bold rounded-2xl shadow-glow-sm tap-scale disabled:opacity-60 disabled:cursor-not-allowed transition-all"
+              style={{ background: "linear-gradient(135deg, #1D9E75, #0E5A42)" }}
             >
-              <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 17h2a2 2 0 002-2v-4a2 2 0 00-2-2H5a2 2 0 00-2 2v4a2 2 0 002 2h2m2 4h6a2 2 0 002-2v-4a2 2 0 00-2-2H9a2 2 0 00-2 2v4a2 2 0 002 2zm8-12V5a2 2 0 00-2-2H9a2 2 0 00-2 2v4h10z" />
-              </svg>
-              Export Clinical Summary
+              {exporting ? (
+                <>
+                  <svg className="w-4 h-4 animate-spin" fill="none" viewBox="0 0 24 24">
+                    <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+                    <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8H4z" />
+                  </svg>
+                  Generating PDF…
+                </>
+              ) : (
+                <>
+                  <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                  </svg>
+                  Export Clinical Summary
+                </>
+              )}
             </button>
           </div>
         </div>

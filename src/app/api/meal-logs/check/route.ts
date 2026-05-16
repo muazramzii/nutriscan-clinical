@@ -27,7 +27,7 @@ export async function GET(request: NextRequest) {
   const pendingLog = await prisma.mealLog.findFirst({
     where: {
       patientId,
-      mealType: mealType as any,
+      mealType: mealType as "BREAKFAST" | "LUNCH" | "DINNER",
       status: "PENDING_AFTER",
       date: { gte: today, lt: tomorrow },
     },

@@ -17,8 +17,8 @@ export async function GET() {
   tomorrow.setDate(tomorrow.getDate() + 1);
 
   const where =
-    session.user.role === "NURSE"
-      ? { ward: session.user.ward!, isActive: true }
+    session.user.role === "NURSE" && session.user.ward
+      ? { ward: session.user.ward, isActive: true }
       : { isActive: true };
 
   const patients = await prisma.patient.findMany({
@@ -26,7 +26,13 @@ export async function GET() {
     include: {
       mealLogs: {
         where: { date: { gte: today, lt: tomorrow } },
-        select: { mealType: true, status: true, nutritionResult: true },
+        select: {
+          mealType: true,
+          status: true,
+          nutritionResult: {
+            select: { kcalActual: true, carbsActual: true, proteinActual: true, fatActual: true },
+          },
+        },
       },
     },
     orderBy: { bedNumber: "asc" },

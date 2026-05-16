@@ -177,7 +177,7 @@ export default function WardsPage() {
   function toggleExpand(ward: string) {
     setExpanded((prev) => {
       const next = new Set(prev);
-      next.has(ward) ? next.delete(ward) : next.add(ward);
+      if (next.has(ward)) { next.delete(ward); } else { next.add(ward); }
       return next;
     });
   }

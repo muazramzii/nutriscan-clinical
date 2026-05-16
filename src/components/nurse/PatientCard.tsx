@@ -18,44 +18,44 @@ interface Props {
   onDelete?: () => void;
 }
 
-function MealDot({
+function MealChip({
   label,
   status,
+  href,
 }: {
   label: string;
   status: MealStatus | null;
+  href: string;
 }) {
-  let bg = "bg-gray-100 text-gray-400 border border-gray-200";
-  let icon = (
-    <svg className="w-2 h-2" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M20 12H4" />
-    </svg>
-  );
+  let chipStyle = "bg-gray-100 text-gray-500 border border-gray-200 hover:border-gray-300 hover:bg-gray-200";
+  let dot = <span className="w-1.5 h-1.5 rounded-full bg-gray-400" />;
 
   if (status === "COMPLETE") {
-    bg = "bg-primary text-white border border-primary";
-    icon = (
-      <svg className="w-2 h-2" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+    chipStyle = "bg-primary-50 text-primary-700 border border-primary-200 hover:bg-primary-100";
+    dot = (
+      <svg className="w-3 h-3 text-primary" fill="none" viewBox="0 0 24 24" stroke="currentColor">
         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M5 13l4 4L19 7" />
       </svg>
     );
   } else if (status === "PENDING_AFTER") {
-    bg = "bg-warning text-white border border-warning";
-    icon = (
-      <svg className="w-2 h-2" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+    chipStyle = "bg-warning-50 text-warning-700 border border-warning-200 hover:bg-warning-100";
+    dot = (
+      <svg className="w-3 h-3 text-warning" fill="none" viewBox="0 0 24 24" stroke="currentColor">
         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M12 8v4l3 3" />
-        <circle cx="12" cy="12" r="9" strokeWidth={2.5} />
+        <circle cx="12" cy="12" r="9" strokeWidth={2} />
       </svg>
     );
   }
 
   return (
-    <div className="flex flex-col items-center gap-0.5">
-      <div className={`w-5 h-5 rounded-full flex items-center justify-center ${bg}`}>
-        {icon}
-      </div>
-      <span className="text-[9px] font-medium text-gray-500">{label}</span>
-    </div>
+    <Link
+      href={href}
+      onClick={(e) => e.stopPropagation()}
+      className={`inline-flex items-center gap-1 px-2 py-1 rounded-lg text-[10px] font-semibold transition-all ${chipStyle}`}
+    >
+      {dot}
+      {label}
+    </Link>
   );
 }
 
@@ -74,8 +74,6 @@ export function PatientCard({
   onEdit,
   onDelete,
 }: Props) {
-  const completed = Object.values(mealStatus).filter((s) => s === "COMPLETE").length;
-  const allDone = completed === 3;
 
   return (
     <Link
@@ -129,29 +127,10 @@ export function PatientCard({
       </div>
 
       {/* Meal status row */}
-      <div className="flex items-center justify-between bg-gray-50/70 rounded-lg px-2.5 py-1.5">
-        <div className="flex items-center gap-3">
-          <MealDot label="Breakfast" status={mealStatus.BREAKFAST} />
-          <MealDot label="Lunch" status={mealStatus.LUNCH} />
-          <MealDot label="Dinner" status={mealStatus.DINNER} />
-        </div>
-        <div className="flex items-center gap-1">
-          {allDone ? (
-            <span className="inline-flex items-center gap-0.5 text-[10px] font-semibold text-primary bg-primary-50 px-1.5 py-0.5 rounded-full">
-              <svg className="w-2.5 h-2.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M5 13l4 4L19 7" />
-              </svg>
-              Complete
-            </span>
-          ) : (
-            <span className="text-[11px] font-semibold text-primary group-hover:translate-x-0.5 transition-transform inline-flex items-center gap-0.5">
-              Log
-              <svg className="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M9 5l7 7-7 7" />
-              </svg>
-            </span>
-          )}
-        </div>
+      <div className="flex items-center gap-1.5 flex-wrap">
+        <MealChip label="Breakfast" status={mealStatus.BREAKFAST} href={`/nurse/log/${id}/BREAKFAST`} />
+        <MealChip label="Lunch" status={mealStatus.LUNCH} href={`/nurse/log/${id}/LUNCH`} />
+        <MealChip label="Dinner" status={mealStatus.DINNER} href={`/nurse/log/${id}/DINNER`} />
       </div>
     </Link>
   );

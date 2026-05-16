@@ -79,13 +79,13 @@ export default function PatientLogPage() {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    fetch("/api/patients")
-      .then((r) => r.json())
+    fetch(`/api/patients/${patientId}`)
+      .then((r) => (r.ok ? r.json() : null))
       .then((data) => {
-        const found = data.patients.find((p: Patient) => p.id === patientId);
-        setPatient(found ?? null);
+        setPatient(data?.patient ?? null);
         setLoading(false);
-      });
+      })
+      .catch(() => setLoading(false));
   }, [patientId]);
 
   if (loading) {
