@@ -30,13 +30,10 @@ export function DietitianNavbar({ nurseName, unreadAlertCount, onBellClick }: Pr
             />
           </div>
           <div>
-            <div className="flex items-center gap-2">
-              <span className="font-bold text-gray-900 tracking-tight">NutriScan Clinical</span>
-              <span className="inline-flex items-center px-2 py-0.5 rounded-full text-2xs font-bold text-primary-700 bg-primary-50 ring-1 ring-inset ring-primary-100 tracking-tight">
-                Dietitian
-              </span>
-            </div>
-            <p className="text-2xs text-gray-500 -mt-0.5">Clinical Diet System</p>
+            <span className="font-bold text-gray-900 tracking-tight">NutriScan Clinical</span>
+            <span className="ml-2 inline-flex items-center px-2 py-0.5 rounded-full text-2xs font-bold text-primary-700 bg-primary-50 ring-1 ring-inset ring-primary-100 tracking-tight">
+              Dietitian Panel
+            </span>
           </div>
         </div>
 
